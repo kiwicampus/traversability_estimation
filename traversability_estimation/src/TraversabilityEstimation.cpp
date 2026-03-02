@@ -236,8 +236,6 @@ bool TraversabilityEstimation::updateServiceCallback(const std::shared_ptr<grid_
     rclcpp::sleep_for(std::chrono::seconds(1));
   }
   grid_map::GridMap traversabilityMap = traversabilityMap_.getTraversabilityMap();
-  response->header.frame_id = traversabilityMap_.getMapFrameId();
-  response->header.stamp = nodeHandle_->now();
   response->info.resolution = traversabilityMap.getResolution();
   response->info.length_x = traversabilityMap.getLength()[0];
   response->info.length_y = traversabilityMap.getLength()[1];
