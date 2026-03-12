@@ -1,7 +1,7 @@
 traversability_estimation:
   ros__parameters:
-    use_raw_map: false
-    submap_service: "/get_submap"
+    use_raw_map: true
+    submap_service: "/get_raw_submap"
     map_frame_id: "odom"
     robot_frame_id: "base_link"
     min_update_rate: 5.0
@@ -13,4 +13,4 @@ traversability_estimation:
     max_gap_width: 0.15
     grid_map_to_initialize_traversability_map:
       enable: true
-      grid_map_topic_name: /elevation_mapping/elevation_map
+      grid_map_topic_name: /elevation_map_raw
