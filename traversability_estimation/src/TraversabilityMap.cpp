@@ -188,15 +188,20 @@ bool TraversabilityMap::setTraversabilityMap(const grid_map_msgs::msg::GridMap& 
 
 void TraversabilityMap::publishTraversabilityMap() {
   if (!traversabilityMapPublisher_->get_subscription_count() < 1) {
-    boost::recursive_mutex::scoped_lock scopedLockForTraversabilityMap(traversabilityMapMutex_);
-    grid_map::GridMap traversabilityMapCopy = traversabilityMap_;
-    scopedLockForTraversabilityMap.unlock();
-    if (traversabilityMapCopy.exists("upper_bound") && traversabilityMapCopy.exists("lower_bound")) {
-      traversabilityMapCopy.add("uncertainty_range", traversabilityMapCopy.get("upper_bound") - traversabilityMapCopy.get("lower_bound"));
+    // Build a lean publish map with only traversability_slope instead of copying
+    // the full GridMap (all elevation variance layers + footprint layers).
+    // This reduces the copy + serialization cost from ~15 layers to 1 layer.
+    grid_map::GridMap publishMap({slopeType_});
+    {
+      boost::recursive_mutex::scoped_lock scopedLockForTraversabilityMap(traversabilityMapMutex_);
+      if (!traversabilityMap_.exists(slopeType_)) return;
+      publishMap.setGeometry(traversabilityMap_.getLength(),
+                             traversabilityMap_.getResolution(),
+                             traversabilityMap_.getPosition());
+      publishMap.setFrameId(traversabilityMap_.getFrameId());
+      publishMap[slopeType_] = traversabilityMap_[slopeType_];
     }
-
-    std::unique_ptr<grid_map_msgs::msg::GridMap> mapMessage;
-    mapMessage = grid_map::GridMapRosConverter::toMessage(traversabilityMapCopy);
+    auto mapMessage = grid_map::GridMapRosConverter::toMessage(publishMap);
     mapMessage->info.pose.position.z = zPosition_;
     RCLCPP_DEBUG(nodeHandle_->get_logger(), "Publishing traversability map.");
     traversabilityMapPublisher_->publish(std::move(mapMessage));
@@ -242,13 +247,11 @@ bool TraversabilityMap::computeTraversability() {
     return false;
   }
   traversabilityMapInitialized_ = true;
-  traversabilityMapCopy.add("step_footprint");
-  traversabilityMapCopy.add("slope_footprint");
-  if (checkForRoughness_) traversabilityMapCopy.add("roughness_footprint");
-  traversabilityMapCopy.add("traversability_footprint");
+  // Footprint layers (step_footprint, slope_footprint, traversability_footprint) omitted:
+  // only traversability_slope is needed and footprint checking is not used.
 
   scopedLockForTraversabilityMap.lock();
-  traversabilityMap_ = traversabilityMapCopy;
+  traversabilityMap_ = std::move(traversabilityMapCopy);
   scopedLockForTraversabilityMap.unlock();
   publishTraversabilityMap();
 

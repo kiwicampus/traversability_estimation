@@ -56,6 +56,13 @@ class SlopeFilter : public FilterBase<T>
   //! Maximum allowed slope.
   double criticalValue_;
 
+  //! Precomputed cos(criticalValue_): surface_normal_z threshold below which score = 0.
+  //! Avoids acos() call for untraversable cells (the common case on rough terrain).
+  double cosCritical_;
+
+  //! Precomputed 1.0 / criticalValue_: replaces per-cell division in score formula.
+  double invCritical_;
+
   //! slope map type.
   std::string type_;
 };

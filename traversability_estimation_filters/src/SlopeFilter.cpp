@@ -9,6 +9,8 @@
 #include "filters/SlopeFilter.hpp"
 #include <pluginlib/class_list_macros.hpp>
 
+#include <cmath>
+
 // Grid Map
 #include <grid_map_ros/grid_map_ros.hpp>
 
@@ -43,6 +45,8 @@ bool SlopeFilter<T>::configure()
     return false;
   }
 
+  cosCritical_ = std::cos(criticalValue_);
+  invCritical_  = 1.0 / criticalValue_;
   RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "critical Slope = %f", criticalValue_);
 
   if (!FilterBase<T>::getParam(std::string("map_type"), type_)) {
@@ -62,29 +66,24 @@ bool SlopeFilter<T>::update(const T& mapIn, T& mapOut)
   mapOut = mapIn;
   mapOut.add(type_);
 
-  double slope, slopeMax = 0.0;
-
   for (GridMapIterator iterator(mapOut);
       !iterator.isPastEnd(); ++iterator) {
 
     // Check if there is a surface normal (empty cell).
     if (!mapOut.isValid(*iterator, "surface_normal_z")) continue;
 
-    // Compute slope from surface normal z
-    slope = acos(mapOut.at("surface_normal_z", *iterator));
+    const double nz = mapOut.at("surface_normal_z", *iterator);
 
-    if (slope < criticalValue_) {
-      mapOut.at(type_, *iterator) = 1.0 - slope / criticalValue_;
-    }
-    else {
+    // Fast path: if nz <= cos(criticalValue_), slope >= criticalValue_ -> score = 0.
+    // This skips acos() for untraversable cells, which is the common case on rough terrain.
+    if (nz <= cosCritical_) {
       mapOut.at(type_, *iterator) = 0.0;
+      continue;
     }
 
-    if (slope > slopeMax) slopeMax = slope;
+    // Traversable cell: compute score using precomputed 1/criticalValue_.
+    mapOut.at(type_, *iterator) = 1.0 - std::acos(nz) * invCritical_;
   }
-
-  // ROS_DEBUG("slope max = %f", slopeMax);
-  RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "slope max = %f", slopeMax);
 
   return true;
 }
