@@ -84,12 +84,6 @@ TraversabilityEstimation::TraversabilityEstimation(rclcpp::Node::SharedPtr& node
   if (!useRawMap_) {
     elevationMapLayers_.push_back("upper_bound");
     elevationMapLayers_.push_back("lower_bound");
-  } else {
-    elevationMapLayers_.push_back("variance");
-    elevationMapLayers_.push_back("horizontal_variance_x");
-    elevationMapLayers_.push_back("horizontal_variance_y");
-    elevationMapLayers_.push_back("horizontal_variance_xy");
-    elevationMapLayers_.push_back("time");
   }
 }
 
@@ -257,10 +251,7 @@ bool TraversabilityEstimation::updateTraversability() {
     }
     RCLCPP_DEBUG(nodeHandle_->get_logger(), "Request sent to %s.", submapServiceName_.c_str());
 
-    if (requestElevationMap(elevationMap)) {
-      traversabilityMap_.setElevationMap(elevationMap);
-      if (!traversabilityMap_.computeTraversability()) return false;
-    } else {
+    if (!requestElevationMap(elevationMap)) {
       RCLCPP_WARN_THROTTLE(nodeHandle_->get_logger(), *node_clock, 2000, "Service not available after waiting");
       return false;
     }
@@ -317,6 +308,7 @@ bool TraversabilityEstimation::requestElevationMap(grid_map_msgs::msg::GridMap& 
   submapRequest->position_y = submapPointTransformed.point.y;
   submapRequest->length_x = mapLength_.x();
   submapRequest->length_y = mapLength_.y();
+  submapRequest->frame_id = traversabilityMap_.getMapFrameId();
   submapRequest->layers = elevationMapLayers_;
 
   while (!submapClient_->wait_for_service(std::chrono::seconds(5))) {
@@ -340,7 +332,13 @@ bool TraversabilityEstimation::requestElevationMap(grid_map_msgs::msg::GridMap& 
 void TraversabilityEstimation::handle_response(const rclcpp::Client<grid_map_msgs::srv::GetGridMap>::SharedFuture future) {
   try {
     auto submapResponse = future.get();
-    elevationMap = submapResponse->map;
+    if (!traversabilityMap_.setElevationMap(submapResponse->map)) {
+      RCLCPP_ERROR(nodeHandle_->get_logger(), "Traversability Estimation: received submap could not be accepted.");
+      return;
+    }
+    if (!traversabilityMap_.computeTraversability()) {
+      RCLCPP_ERROR(nodeHandle_->get_logger(), "Traversability Estimation: failed to compute traversability from service response.");
+    }
   } catch (const std::exception& e) {
     RCLCPP_ERROR(nodeHandle_->get_logger(), "Service call failed: %s", e.what());
   }
