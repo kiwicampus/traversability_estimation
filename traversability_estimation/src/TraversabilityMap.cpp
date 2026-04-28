@@ -191,7 +191,10 @@ void TraversabilityMap::publishTraversabilityMap() {
     // Build a lean publish map with only traversability_slope instead of copying
     // the full GridMap (all elevation variance layers + footprint layers).
     // This reduces the copy + serialization cost from ~15 layers to 1 layer.
-    grid_map::GridMap publishMap({slopeType_});
+    // Include `elevation` so rviz GridMap can use it as the Height layer and color
+    // by traversability_slope — without this the slope values themselves get used
+    // as Z, making the visualization unreadable on uneven terrain.
+    grid_map::GridMap publishMap({slopeType_, "elevation"});
     {
       boost::recursive_mutex::scoped_lock scopedLockForTraversabilityMap(traversabilityMapMutex_);
       if (!traversabilityMap_.exists(slopeType_)) return;
@@ -199,7 +202,11 @@ void TraversabilityMap::publishTraversabilityMap() {
                              traversabilityMap_.getResolution(),
                              traversabilityMap_.getPosition());
       publishMap.setFrameId(traversabilityMap_.getFrameId());
+      publishMap.setTimestamp(nodeHandle_->get_clock()->now().nanoseconds());
       publishMap[slopeType_] = traversabilityMap_[slopeType_];
+      if (traversabilityMap_.exists("elevation")) {
+        publishMap["elevation"] = traversabilityMap_["elevation"];
+      }
     }
     auto mapMessage = grid_map::GridMapRosConverter::toMessage(publishMap);
     mapMessage->info.pose.position.z = zPosition_;
