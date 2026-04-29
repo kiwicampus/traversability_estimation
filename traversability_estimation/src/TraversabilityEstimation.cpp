@@ -301,12 +301,20 @@ bool TraversabilityEstimation::requestElevationMap(grid_map_msgs::msg::GridMap& 
   submapPoint_.header.stamp = rclcpp::Time(0);
   geometry_msgs::msg::PointStamped submapPointTransformed;
 
+  // tf2's canTransform/lookupTransform emit a per-call "Invalid frame ID" warning
+  // when the target/source frame isn't yet in the buffer. Pre-check existence to
+  // skip silently during startup; the timer that drives this call will retry.
+  const std::string& target = traversabilityMap_.getMapFrameId();
+  const std::string& source = submapPoint_.header.frame_id;
+  if (!tfBuffer_._frameExists(target) || !tfBuffer_._frameExists(source)) {
+    RCLCPP_INFO_THROTTLE(nodeHandle_->get_logger(), *nodeHandle_->get_clock(), 5000,
+                         "Waiting for TF frames '%s' and '%s' to appear...",
+                         target.c_str(), source.c_str());
+    return false;
+  }
+
   try {
-    while (!tfBuffer_.canTransform(traversabilityMap_.getMapFrameId(), submapPoint_.header.frame_id, tf2::TimePointZero, tf2::durationFromSec(1.0))) {
-      RCLCPP_INFO(nodeHandle_->get_logger(), "Waiting for transform to become available...");
-      rclcpp::sleep_for(std::chrono::seconds(5));
-    }
-    tfBuffer_.transform(submapPoint_, submapPointTransformed, traversabilityMap_.getMapFrameId());
+    tfBuffer_.transform(submapPoint_, submapPointTransformed, target);
   } catch (const tf2::TransformException& ex) {
     RCLCPP_ERROR(nodeHandle_->get_logger(), "Failed to transform points: %s", ex.what());
     return false;
