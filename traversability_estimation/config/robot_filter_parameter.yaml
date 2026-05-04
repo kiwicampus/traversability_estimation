@@ -8,14 +8,14 @@ traversability_estimation:
         params:
           input_layer: elevation
           output_layers_prefix: surface_normal_
-          radius: 0.15
+          radius: 0.3
           normal_vector_positive_axis: z
       filter2:
         name: slope_filter
         type: traversabilityFilters/SlopeFilter
         params:
           map_type: traversability_slope_fake
-          critical_value: 0.5
+          critical_value: 0.7
       filter3:
         name: step_filter
         type: traversabilityFilters/StepFilter
@@ -31,7 +31,7 @@ traversability_estimation:
         params:
           map_type: traversability_roughness
           critical_value: 0.05
-          estimation_radius: 0.05
+          estimation_radius: 0.3
       filter5:
         name: math_expression_filter
         type: gridMapFilters/MathExpressionFilter
