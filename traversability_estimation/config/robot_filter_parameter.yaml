@@ -8,34 +8,36 @@ traversability_estimation:
         params:
           input_layer: elevation
           output_layers_prefix: surface_normal_
-          radius: 0.4
+          radius: 0.15
           normal_vector_positive_axis: z
       filter2:
         name: slope_filter
         type: traversabilityFilters/SlopeFilter
         params:
-          map_type: traversability_slope
-          critical_value: 0.7
-      # filter3:  # step_filter disabled — only traversability_slope needed
-      #   name: step_filter
-      #   type: traversabilityFilters/StepFilter
-      #   params:
-      #     map_type: traversability_step
-      #     critical_value: 0.12
-      #     first_window_radius: 0.5
-      #     second_window_radius: 0.6
-      #     critical_cell_number: 1
-      # filter4:
-      #   type: traversabilityFilters/RoughnessFilter
-      #   params:
-      #     map_type: traversability_roughness
-      #     critical_value: 0.05
-      #     estimation_radius: 0.05
-      # filter5:
-      #   type: gridMapFilters/MathExpressionFilter
-      #   params:
-      #     output_layer: traversability
-      #     expression: (1.0 / 3.0) * (traversability_slope + traversability_step + traversability_roughness)
+          map_type: traversability_slope_fake
+          critical_value: 0.5
+      filter3:
+        name: step_filter
+        type: traversabilityFilters/StepFilter
+        params:
+          map_type: traversability_step
+          critical_value: 0.10
+          first_window_radius: 0.5
+          second_window_radius: 0.6
+          critical_cell_number: 1
+      filter4:
+        name: roughness_filter
+        type: traversabilityFilters/RoughnessFilter
+        params:
+          map_type: traversability_roughness
+          critical_value: 0.05
+          estimation_radius: 0.05
+      filter5:
+        name: math_expression_filter
+        type: gridMapFilters/MathExpressionFilter
+        params:
+          output_layer: traversability_slope
+          expression: (1.0 / 3.0) * (traversability_slope_fake + traversability_step + traversability_roughness)
       # DeletionFilter not needed: publishTraversabilityMap() only serializes
       # traversability_slope, so surface_normal_x/y/z never reach the wire.
       # filter4:
