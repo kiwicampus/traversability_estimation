@@ -21,6 +21,7 @@ include_directories(
 
 ## Declare a cpp library
 add_library(${PROJECT_NAME} SHARED
+  src/SlopeScore.cpp
   src/SlopeFilter.cpp
   src/StepFilter.cpp
   src/RoughnessFilter.cpp
@@ -68,5 +69,16 @@ ament_export_dependencies(
   Eigen3
 )
 ament_export_targets(export_${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(rclcpp REQUIRED)
+  ament_add_gtest(test_slope_filter
+    test/SlopeScoreTest.cpp
+    test/SlopeFilterTest.cpp
+  )
+  target_link_libraries(test_slope_filter ${PROJECT_NAME})
+  ament_target_dependencies(test_slope_filter grid_map_core filters rclcpp)
+endif()
 
 ament_package()

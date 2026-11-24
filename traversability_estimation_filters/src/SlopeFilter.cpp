@@ -18,9 +18,16 @@ using namespace grid_map;
 
 namespace filters {
 
+namespace {
+
+// Also the declared default of critical_value: getParam declares the parameter with the value passed in.
+constexpr double kDefaultCriticalValue = M_PI_4;
+
+}  // namespace
+
 template<typename T>
 SlopeFilter<T>::SlopeFilter()
-    : criticalValue_(M_PI_4),
+    : score_(kDefaultCriticalValue),
       type_("traversability_slope")
 {
 
@@ -35,19 +42,20 @@ SlopeFilter<T>::~SlopeFilter()
 template<typename T>
 bool SlopeFilter<T>::configure()
 {
-  if (!FilterBase<T>::getParam(std::string("critical_value"), criticalValue_)) {
+  double criticalValue = kDefaultCriticalValue;
+  if (!FilterBase<T>::getParam(std::string("critical_value"), criticalValue)) {
     RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "SlopeFilter did not find param critical_value");
     return false;
   }
 
-  if (criticalValue_ > M_PI_2 || criticalValue_ < 0.0) {
-    RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "Critical slope must be in the interval [0, PI/2]");
+  // 0 is excluded: SlopeScore divides by the critical slope.
+  if (criticalValue > M_PI_2 || criticalValue <= 0.0) {
+    RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "Critical slope must be in the interval (0, PI/2]");
     return false;
   }
 
-  cosCritical_ = std::cos(criticalValue_);
-  invCritical_  = 1.0 / criticalValue_;
-  RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "critical Slope = %f", criticalValue_);
+  score_ = SlopeScore(criticalValue);
+  RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "critical Slope = %f", criticalValue);
 
   if (!FilterBase<T>::getParam(std::string("map_type"), type_)) {
     RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "SlopeFilter did not find param map_type");
@@ -66,27 +74,26 @@ bool SlopeFilter<T>::update(const T& mapIn, T& mapOut)
   mapOut = mapIn;
   mapOut.add(type_);
 
+  // Look the layers up once: a per-cell lookup by name builds a heap std::string for "surface_normal_z".
+  const Matrix& normalZ = mapOut["surface_normal_z"];
+  Matrix& slope = mapOut[type_];
+
   for (GridMapIterator iterator(mapOut);
       !iterator.isPastEnd(); ++iterator) {
+    const Index index(*iterator);
+    const float nz = normalZ(index(0), index(1));
 
     // Check if there is a surface normal (empty cell).
-    if (!mapOut.isValid(*iterator, "surface_normal_z")) continue;
+    if (!std::isfinite(nz)) continue;
 
-    const double nz = mapOut.at("surface_normal_z", *iterator);
-
-    // Fast path: if nz <= cos(criticalValue_), slope >= criticalValue_ -> score = 0.
-    // This skips acos() for untraversable cells, which is the common case on rough terrain.
-    if (nz <= cosCritical_) {
-      mapOut.at(type_, *iterator) = 0.0;
-      continue;
-    }
-
-    // Traversable cell: compute score using precomputed 1/criticalValue_.
-    mapOut.at(type_, *iterator) = 1.0 - std::acos(nz) * invCritical_;
+    slope(index(0), index(1)) = score_.compute(nz);
   }
 
   return true;
 }
+
+// Exported so the filter can also be used directly, not only through pluginlib (e.g. in unit tests).
+template class SlopeFilter<grid_map::GridMap>;
 
 } /* namespace */
 

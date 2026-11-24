@@ -14,6 +14,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 
+#include "filters/SlopeScore.hpp"
+
 #include <string>
 
 namespace filters {
@@ -45,7 +47,8 @@ class SlopeFilter : public FilterBase<T>
    * Computes the slope traversability value based on an elevation map and
    * saves it as additional grid map layer.
    * The slope traversability is set between 0.0 and 1.0, where a value of 1.0 means fully
-   * traversable and 0.0 means not traversable. NAN indicates unknown values (terrain).
+   * traversable and 0.0 means not traversable. NAN indicates unknown values (terrain), including cells whose
+   * surface normal carries no slope information (see SlopeScore).
    * @param mapIn grid map containing elevation map and surface normals.
    * @param mapOut grid map containing mapIn and slope traversability values.
    */
@@ -53,15 +56,8 @@ class SlopeFilter : public FilterBase<T>
 
  private:
 
-  //! Maximum allowed slope.
-  double criticalValue_;
-
-  //! Precomputed cos(criticalValue_): surface_normal_z threshold below which score = 0.
-  //! Avoids acos() call for untraversable cells (the common case on rough terrain).
-  double cosCritical_;
-
-  //! Precomputed 1.0 / criticalValue_: replaces per-cell division in score formula.
-  double invCritical_;
+  //! Slope traversability of a cell from its surface normal, built from the critical_value parameter.
+  SlopeScore score_;
 
   //! slope map type.
   std::string type_;
