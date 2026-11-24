@@ -48,8 +48,9 @@ bool SlopeFilter<T>::configure()
     return false;
   }
 
-  if (criticalValue > M_PI_2 || criticalValue < 0.0) {
-    RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "Critical slope must be in the interval [0, PI/2]");
+  // 0 is excluded: SlopeScore divides by the critical slope.
+  if (criticalValue > M_PI_2 || criticalValue <= 0.0) {
+    RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "Critical slope must be in the interval (0, PI/2]");
     return false;
   }
 

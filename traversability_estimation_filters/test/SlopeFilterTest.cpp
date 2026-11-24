@@ -3,8 +3,31 @@
 #include <cmath>
 
 #include <grid_map_core/grid_map_core.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "filters/SlopeFilter.hpp"
+
+namespace {
+
+bool configureWithCriticalValue(double criticalValue)
+{
+  auto node = std::make_shared<rclcpp::Node>(
+      "slope_filter_test",
+      rclcpp::NodeOptions().parameter_overrides({rclcpp::Parameter("slope.critical_value", criticalValue)}));
+  filters::SlopeFilter<grid_map::GridMap> filter;
+  filters::FilterBase<grid_map::GridMap>& base = filter;  // SlopeFilter::configure() hides this overload
+  return base.configure("slope", "slope", node->get_node_logging_interface(), node->get_node_parameters_interface());
+}
+
+}  // namespace
+
+TEST(SlopeFilter, RejectsAZeroCriticalSlope)
+{
+  rclcpp::init(0, nullptr);
+  EXPECT_TRUE(configureWithCriticalValue(M_PI_4));
+  EXPECT_FALSE(configureWithCriticalValue(0.0));  // SlopeScore would divide by zero
+  rclcpp::shutdown();
+}
 
 TEST(SlopeFilter, HorizontalNormalLeavesTheCellUnknown)
 {
