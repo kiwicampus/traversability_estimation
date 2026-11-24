@@ -56,10 +56,7 @@ class SlopeFilter : public FilterBase<T>
 
  private:
 
-  //! Maximum allowed slope.
-  double criticalValue_;
-
-  //! Slope traversability of a cell from its surface normal, built from criticalValue_.
+  //! Slope traversability of a cell from its surface normal, built from the critical_value parameter.
   SlopeScore score_;
 
   //! slope map type.

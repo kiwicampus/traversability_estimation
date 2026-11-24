@@ -18,10 +18,16 @@ using namespace grid_map;
 
 namespace filters {
 
+namespace {
+
+// Also the declared default of critical_value: getParam declares the parameter with the value passed in.
+constexpr double kDefaultCriticalValue = M_PI_4;
+
+}  // namespace
+
 template<typename T>
 SlopeFilter<T>::SlopeFilter()
-    : criticalValue_(M_PI_4),
-      score_(M_PI_4),
+    : score_(kDefaultCriticalValue),
       type_("traversability_slope")
 {
 
@@ -36,18 +42,19 @@ SlopeFilter<T>::~SlopeFilter()
 template<typename T>
 bool SlopeFilter<T>::configure()
 {
-  if (!FilterBase<T>::getParam(std::string("critical_value"), criticalValue_)) {
+  double criticalValue = kDefaultCriticalValue;
+  if (!FilterBase<T>::getParam(std::string("critical_value"), criticalValue)) {
     RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "SlopeFilter did not find param critical_value");
     return false;
   }
 
-  if (criticalValue_ > M_PI_2 || criticalValue_ < 0.0) {
+  if (criticalValue > M_PI_2 || criticalValue < 0.0) {
     RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "Critical slope must be in the interval [0, PI/2]");
     return false;
   }
 
-  score_ = SlopeScore(criticalValue_);
-  RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "critical Slope = %f", criticalValue_);
+  score_ = SlopeScore(criticalValue);
+  RCLCPP_DEBUG(rclcpp::get_logger("SlopeFilter"), "critical Slope = %f", criticalValue);
 
   if (!FilterBase<T>::getParam(std::string("map_type"), type_)) {
     RCLCPP_ERROR(rclcpp::get_logger("SlopeFilter"), "SlopeFilter did not find param map_type");
