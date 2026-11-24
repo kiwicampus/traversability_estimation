@@ -21,7 +21,7 @@ namespace filters {
 template<typename T>
 SlopeFilter<T>::SlopeFilter()
     : criticalValue_(M_PI_4),
-      score_(criticalValue_),
+      score_(M_PI_4),
       type_("traversability_slope")
 {
 
