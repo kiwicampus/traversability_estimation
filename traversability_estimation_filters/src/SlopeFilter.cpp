@@ -66,13 +66,19 @@ bool SlopeFilter<T>::update(const T& mapIn, T& mapOut)
   mapOut = mapIn;
   mapOut.add(type_);
 
+  // Look the layers up once: a per-cell lookup by name builds a heap std::string for "surface_normal_z".
+  const Matrix& normalZ = mapOut["surface_normal_z"];
+  Matrix& slope = mapOut[type_];
+
   for (GridMapIterator iterator(mapOut);
       !iterator.isPastEnd(); ++iterator) {
+    const Index index(*iterator);
+    const float nz = normalZ(index(0), index(1));
 
     // Check if there is a surface normal (empty cell).
-    if (!mapOut.isValid(*iterator, "surface_normal_z")) continue;
+    if (!std::isfinite(nz)) continue;
 
-    mapOut.at(type_, *iterator) = score_.compute(mapOut.at("surface_normal_z", *iterator));
+    slope(index(0), index(1)) = score_.compute(nz);
   }
 
   return true;
